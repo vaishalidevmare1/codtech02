@@ -1,0 +1,442 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.ArrayList;
+
+// Main class
+public class InventoryManagementSystem {
+    private static Inventory inventory = new Inventory();
+    private static UserAuthentication userAuth = new UserAuthentication();
+    private static JFrame mainFrame;
+
+    public static void main(String[] args) {
+        // Initialize some sample data (optional)
+        initializeSampleData();
+
+        // Display Login Screen
+        SwingUtilities.invokeLater(() -> displayLoginScreen());
+    }
+
+    private static void initializeSampleData() {
+        inventory.addProduct("Laptop", 1200.00, 10);
+        inventory.addProduct("Smartphone", 800.00, 25);
+        inventory.addProduct("Headphones", 150.00, 50);
+        inventory.addProduct("Monitor", 300.00, 15);
+    }
+
+    // Display Login Screen
+    private static void displayLoginScreen() {
+        JFrame loginFrame = new JFrame("Login");
+        loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        loginFrame.setSize(350, 200);
+        loginFrame.setLocationRelativeTo(null);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(null);
+        loginFrame.add(panel);
+
+        JLabel userLabel = new JLabel("Username:");
+        userLabel.setBounds(50, 30, 80, 25);
+        panel.add(userLabel);
+
+        JTextField userText = new JTextField(20);
+        userText.setBounds(140, 30, 150, 25);
+        panel.add(userText);
+
+        JLabel passwordLabel = new JLabel("Password:");
+        passwordLabel.setBounds(50, 70, 80, 25);
+        panel.add(passwordLabel);
+
+        JPasswordField passwordText = new JPasswordField(20);
+        passwordText.setBounds(140, 70, 150, 25);
+        panel.add(passwordText);
+
+        JButton loginButton = new JButton("Login");
+        loginButton.setBounds(140, 110, 80, 25);
+        panel.add(loginButton);
+
+        loginButton.addActionListener(e -> {
+            String username = userText.getText().trim();
+            String password = new String(passwordText.getPassword()).trim();
+
+            if (userAuth.authenticate(username, password)) {
+                loginFrame.dispose();
+                displayMainMenu();
+            } else {
+                JOptionPane.showMessageDialog(loginFrame, "Invalid username or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        loginFrame.setVisible(true);
+    }
+
+    // Display Main Menu
+    private static void displayMainMenu() {
+        mainFrame = new JFrame("Inventory Management System");
+        mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        mainFrame.setSize(600, 400);
+        mainFrame.setLocationRelativeTo(null);
+
+        JMenuBar menuBar = new JMenuBar();
+
+        // File Menu
+        JMenu fileMenu = new JMenu("File");
+        JMenuItem logoutItem = new JMenuItem("Logout");
+        JMenuItem exitItem = new JMenuItem("Exit");
+        fileMenu.add(logoutItem);
+        fileMenu.add(exitItem);
+        menuBar.add(fileMenu);
+
+        // Reports Menu
+        JMenu reportsMenu = new JMenu("Reports");
+        JMenuItem lowStockItem = new JMenuItem("Low Stock Alert");
+        JMenuItem salesSummaryItem = new JMenuItem("Sales Summary");
+        reportsMenu.add(lowStockItem);
+        reportsMenu.add(salesSummaryItem);
+        menuBar.add(reportsMenu);
+
+        mainFrame.setJMenuBar(menuBar);
+
+        // Main Panel with Buttons
+        JPanel panel = new JPanel();
+        panel.setLayout(new GridLayout(3, 2, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(50, 50, 50, 50));
+
+        JButton addButton = new JButton("Add Product");
+        JButton editButton = new JButton("Edit Product");
+        JButton deleteButton = new JButton("Delete Product");
+        JButton viewButton = new JButton("View Inventory");
+        JButton salesButton = new JButton("Record Sale");
+        JButton refreshButton = new JButton("Refresh Inventory");
+
+        panel.add(addButton);
+        panel.add(editButton);
+        panel.add(deleteButton);
+        panel.add(viewButton);
+        panel.add(salesButton);
+        panel.add(refreshButton);
+
+        mainFrame.add(panel);
+
+        // Action Listeners
+        addButton.addActionListener(e -> addProduct());
+        editButton.addActionListener(e -> editProduct());
+        deleteButton.addActionListener(e -> deleteProduct());
+        viewButton.addActionListener(e -> viewInventory());
+        salesButton.addActionListener(e -> recordSale());
+        refreshButton.addActionListener(e -> viewInventory());
+
+        logoutItem.addActionListener(e -> {
+            mainFrame.dispose();
+            displayLoginScreen();
+        });
+
+        exitItem.addActionListener(e -> System.exit(0));
+
+        lowStockItem.addActionListener(e -> showLowStockAlert());
+        salesSummaryItem.addActionListener(e -> showSalesSummary());
+
+        mainFrame.setVisible(true);
+    }
+
+    // Add Product
+    private static void addProduct() {
+        JTextField nameField = new JTextField();
+        JTextField priceField = new JTextField();
+        JTextField quantityField = new JTextField();
+
+        Object[] message = {
+                "Product Name:", nameField,
+                "Price:", priceField,
+                "Quantity:", quantityField
+        };
+
+        int option = JOptionPane.showConfirmDialog(mainFrame, message, "Add New Product", JOptionPane.OK_CANCEL_OPTION);
+        if (option == JOptionPane.OK_OPTION) {
+            String name = nameField.getText().trim();
+            String priceStr = priceField.getText().trim();
+            String quantityStr = quantityField.getText().trim();
+
+            if (name.isEmpty() || priceStr.isEmpty() || quantityStr.isEmpty()) {
+                JOptionPane.showMessageDialog(mainFrame, "All fields are required.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            try {
+                double price = Double.parseDouble(priceStr);
+                int quantity = Integer.parseInt(quantityStr);
+
+                if (price < 0 || quantity < 0) {
+                    JOptionPane.showMessageDialog(mainFrame, "Price and Quantity must be non-negative.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                inventory.addProduct(name, price, quantity);
+                JOptionPane.showMessageDialog(mainFrame, "Product added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(mainFrame, "Invalid number format for Price or Quantity.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    // Edit Product
+    private static void editProduct() {
+        String name = JOptionPane.showInputDialog(mainFrame, "Enter the product name to edit:", "Edit Product", JOptionPane.QUESTION_MESSAGE);
+        if (name == null || name.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(mainFrame, "Product name cannot be empty.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Product product = inventory.getProductByName(name.trim());
+        if (product == null) {
+            JOptionPane.showMessageDialog(mainFrame, "Product not found.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        JTextField priceField = new JTextField(String.valueOf(product.getPrice()));
+        JTextField quantityField = new JTextField(String.valueOf(product.getQuantity()));
+
+        Object[] message = {
+                "New Price:", priceField,
+                "New Quantity:", quantityField
+        };
+
+        int option = JOptionPane.showConfirmDialog(mainFrame, message, "Edit Product - " + product.getName(), JOptionPane.OK_CANCEL_OPTION);
+        if (option == JOptionPane.OK_OPTION) {
+            String priceStr = priceField.getText().trim();
+            String quantityStr = quantityField.getText().trim();
+
+            if (priceStr.isEmpty() || quantityStr.isEmpty()) {
+                JOptionPane.showMessageDialog(mainFrame, "All fields are required.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            try {
+                double price = Double.parseDouble(priceStr);
+                int quantity = Integer.parseInt(quantityStr);
+
+                if (price < 0 || quantity < 0) {
+                    JOptionPane.showMessageDialog(mainFrame, "Price and Quantity must be non-negative.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                inventory.editProduct(name.trim(), price, quantity);
+                JOptionPane.showMessageDialog(mainFrame, "Product updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(mainFrame, "Invalid number format for Price or Quantity.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    // Delete Product
+    private static void deleteProduct() {
+        String name = JOptionPane.showInputDialog(mainFrame, "Enter the product name to delete:", "Delete Product", JOptionPane.QUESTION_MESSAGE);
+        if (name == null || name.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(mainFrame, "Product name cannot be empty.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Product product = inventory.getProductByName(name.trim());
+        if (product == null) {
+            JOptionPane.showMessageDialog(mainFrame, "Product not found.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(mainFrame, "Are you sure you want to delete " + product.getName() + "?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
+        if (confirm == JOptionPane.YES_OPTION) {
+            inventory.deleteProduct(name.trim());
+            JOptionPane.showMessageDialog(mainFrame, "Product deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    // View Inventory
+    private static void viewInventory() {
+        ArrayList<Product> products = inventory.getAllProducts();
+        String[] columnNames = {"Product Name", "Price", "Quantity"};
+        Object[][] data = new Object[products.size()][3];
+
+        for (int i = 0; i < products.size(); i++) {
+            Product p = products.get(i);
+            data[i][0] = p.getName();
+            data[i][1] = p.getPrice();
+            data[i][2] = p.getQuantity();
+        }
+
+        JTable table = new JTable(data, columnNames);
+        JScrollPane scrollPane = new JScrollPane(table);
+        table.setFillsViewportHeight(true);
+
+        JFrame tableFrame = new JFrame("Inventory");
+        tableFrame.setSize(500, 300);
+        tableFrame.setLocationRelativeTo(mainFrame);
+        tableFrame.add(scrollPane);
+        tableFrame.setVisible(true);
+    }
+
+    // Show Low Stock Alert
+    private static void showLowStockAlert() {
+        String thresholdStr = JOptionPane.showInputDialog(mainFrame, "Enter stock threshold:", "Low Stock Alert", JOptionPane.QUESTION_MESSAGE);
+        if (thresholdStr == null || thresholdStr.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(mainFrame, "Threshold cannot be empty.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try {
+            int threshold = Integer.parseInt(thresholdStr.trim());
+            if (threshold < 0) {
+                JOptionPane.showMessageDialog(mainFrame, "Threshold must be non-negative.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            ArrayList<Product> lowStockProducts = inventory.getLowStockProducts(threshold);
+            if (lowStockProducts.isEmpty()) {
+                JOptionPane.showMessageDialog(mainFrame, "No products are below the threshold.", "Low Stock Alert", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                StringBuilder message = new StringBuilder("Products below threshold (" + threshold + "):\n");
+                for (Product p : lowStockProducts) {
+                    message.append(p.getName()).append(" - Quantity: ").append(p.getQuantity()).append("\n");
+                }
+                JOptionPane.showMessageDialog(mainFrame, message.toString(), "Low Stock Alert", JOptionPane.WARNING_MESSAGE);
+            }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(mainFrame, "Invalid number format for threshold.", "Input Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Record Sale (Updates inventory)
+    private static void recordSale() {
+        String name = JOptionPane.showInputDialog(mainFrame, "Enter the product name sold:", "Record Sale", JOptionPane.QUESTION_MESSAGE);
+        if (name == null || name.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(mainFrame, "Product name cannot be empty.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        Product product = inventory.getProductByName(name.trim());
+        if (product == null) {
+            JOptionPane.showMessageDialog(mainFrame, "Product not found.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String quantityStr = JOptionPane.showInputDialog(mainFrame, "Enter quantity sold:", "Record Sale", JOptionPane.QUESTION_MESSAGE);
+        if (quantityStr == null || quantityStr.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(mainFrame, "Quantity cannot be empty.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try {
+            int quantitySold = Integer.parseInt(quantityStr.trim());
+            if (quantitySold <= 0) {
+                JOptionPane.showMessageDialog(mainFrame, "Quantity sold must be positive.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            if (quantitySold > product.getQuantity()) {
+                JOptionPane.showMessageDialog(mainFrame, "Insufficient stock.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            inventory.recordSale(name.trim(), quantitySold);
+            JOptionPane.showMessageDialog(mainFrame, "Sale recorded successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(mainFrame, "Invalid number format for quantity.", "Input Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Show Sales Summary
+    private static void showSalesSummary() {
+        // For simplicity, we'll assume sales data is not persisted.
+        // Implementing sales summaries would require maintaining sales records.
+        JOptionPane.showMessageDialog(mainFrame, "Sales summary feature is under development.", "Sales Summary", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    // Inner Classes
+
+    // Product Class
+    static class Product {
+        private String name;
+        private double price;
+        private int quantity;
+
+        public Product(String name, double price, int quantity) {
+            this.name = name;
+            this.price = price;
+            this.quantity = quantity;
+        }
+
+        public String getName() { return name; }
+
+        public double getPrice() { return price; }
+
+        public int getQuantity() { return quantity; }
+
+        public void setPrice(double price) { this.price = price; }
+
+        public void setQuantity(int quantity) { this.quantity = quantity; }
+
+        public void addStock(int quantity) { this.quantity += quantity; }
+
+        public void removeStock(int quantity) { this.quantity -= quantity; }
+    }
+
+    // Inventory Class
+    static class Inventory {
+        private ArrayList<Product> products = new ArrayList<>();
+
+        public void addProduct(String name, double price, int quantity) {
+            products.add(new Product(name, price, quantity));
+        }
+
+        public void editProduct(String name, double price, int quantity) {
+            Product product = getProductByName(name);
+            if (product != null) {
+                product.setPrice(price);
+                product.setQuantity(quantity);
+            }
+        }
+
+        public void deleteProduct(String name) {
+            products.removeIf(product -> product.getName().equalsIgnoreCase(name));
+        }
+
+        public Product getProductByName(String name) {
+            for (Product product : products) {
+                if (product.getName().equalsIgnoreCase(name)) {
+                    return product;
+                }
+            }
+            return null;
+        }
+
+        public ArrayList<Product> getLowStockProducts(int threshold) {
+            ArrayList<Product> lowStock = new ArrayList<>();
+            for (Product product : products) {
+                if (product.getQuantity() < threshold) {
+                    lowStock.add(product);
+                }
+            }
+            return lowStock;
+        }
+
+        public ArrayList<Product> getAllProducts() {
+            return products;
+        }
+
+        public void recordSale(String name, int quantitySold) {
+            Product product = getProductByName(name);
+            if (product != null) {
+                product.removeStock(quantitySold);
+            }
+        }
+    }
+
+    // UserAuthentication Class
+    static class UserAuthentication {
+        private final String USERNAME = "Vaishu";
+        private final String PASSWORD = "12345678";
+
+        public boolean authenticate(String username, String password) {
+            return USERNAME.equals(username) && PASSWORD.equals(password);
+        }
+    }
+}
